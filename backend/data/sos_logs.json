@@ -1,0 +1,17 @@
+[
+  {
+    "id": "1779446008709",
+    "timestamp": "2026-05-22T10:33:28.709Z",
+    "coords": {
+      "lat": 40.754402883065204,
+      "lng": -73.99893551486801
+    },
+    "device": "Web Client App",
+    "status": "Dispatched",
+    "actionPlan": [
+      "SafeNest emergency coordinates transmitted securely to local authority desk.",
+      "Nearest responsive patrol car and child health advocate notified.",
+      "Encrypted backup log created locally to preserve timeline safety."
+    ]
+  }
+]
