@@ -8,7 +8,8 @@ export default function handler(req, res) {
   }
 
   if (req.method === 'GET') {
-    const { trackingCode } = req.query;
+    const { code } = req.query;
+    const trackingCode = code;
     
     if (!trackingCode) {
       return res.status(400).json({ error: 'Tracking code is required.' });
