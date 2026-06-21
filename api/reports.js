@@ -9,7 +9,25 @@ export default function handler(req, res) {
 
   if (req.method === 'POST') {
     try {
-      const { incidentType, description, date, location, senderContact } = req.body;
+      // Parse the body - handle both FormData and JSON
+      let incidentType, description, date, location, senderContact;
+
+      if (req.body && typeof req.body === 'object') {
+        // Direct object from JSON parser
+        incidentType = req.body.incidentType;
+        description = req.body.description;
+        date = req.body.date;
+        location = req.body.location;
+        senderContact = req.body.senderContact;
+      } else if (typeof req.body === 'string') {
+        // Parse JSON string
+        const parsed = JSON.parse(req.body);
+        incidentType = parsed.incidentType;
+        description = parsed.description;
+        date = parsed.date;
+        location = parsed.location;
+        senderContact = parsed.senderContact;
+      }
 
       if (!description || !incidentType) {
         return res.status(400).json({ error: 'Incident type and description are required.' });
@@ -17,35 +35,15 @@ export default function handler(req, res) {
 
       const trackingCode = `SAFE-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
-      const newReport = {
-        id: Date.now().toString(),
-        trackingCode,
-        incidentType,
-        description,
-        date: date || new Date().toISOString().split('T')[0],
-        location: location || 'Anonymous',
-        senderContact: senderContact || 'Anonymous',
-        attachments: [],
-        status: 'Received',
-        createdAt: new Date().toISOString(),
-        updates: [
-          {
-            timestamp: new Date().toISOString(),
-            message: 'Report submitted securely through automated cryptographic routing.',
-            status: 'Received'
-          }
-        ]
-      };
-
       return res.status(201).json({
         success: true,
         message: 'Anonymous report recorded successfully.',
         trackingCode,
-        status: newReport.status
+        status: 'Received'
       });
     } catch (error) {
       console.error('Error recording report:', error);
-      return res.status(500).json({ error: 'Failed to submit report. Please try again.' });
+      return res.status(500).json({ error: error.message || 'Failed to submit report. Please try again.' });
     }
   }
 

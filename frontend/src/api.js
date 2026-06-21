@@ -28,9 +28,21 @@ export async function fetchNGOs() {
  * @param {FormData} formData
  */
 export async function submitReport(formData) {
+  // Convert FormData to JSON for Vercel serverless function compatibility
+  const data = {
+    incidentType: formData.get('incidentType'),
+    description: formData.get('description'),
+    date: formData.get('date'),
+    location: formData.get('location'),
+    senderContact: formData.get('senderContact')
+    // Note: File attachments are not currently supported on the free tier
+    // In production, these would be uploaded to a cloud storage service
+  };
+
   const res = await fetch(`${API_BASE_URL}/reports`, {
     method: 'POST',
-    body: formData, // Automatic Content-Type header configuration for multipart/form-data
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
   });
   if (!res.ok) {
     const errorData = await res.json();
