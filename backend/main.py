@@ -4,7 +4,7 @@ import uuid
 import random
 from datetime import datetime
 from typing import List, Optional
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, status
+from fastapi import FastAPI, Request, UploadFile, File, Form, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
@@ -34,13 +34,13 @@ def connect_to_mongo():
         # Test connection
         mongo_client.admin.command('ping')
         db = mongo_client[DATABASE_NAME]
-        print(f"✓ Connected to MongoDB: {DATABASE_NAME}")
+        print(f"[OK] Connected to MongoDB: {DATABASE_NAME}")
         return True
     except ServerSelectionTimeoutError:
-        print("✗ MongoDB connection failed: Server not reachable")
+        print("[ERROR] MongoDB connection failed: Server not reachable")
         return False
     except Exception as e:
-        print(f"✗ MongoDB connection error: {e}")
+        print(f"[ERROR] MongoDB connection error: {e}")
         return False
 
 # Connect on startup
@@ -139,8 +139,9 @@ def get_ngos():
 # 2. SUBMIT ANONYMOUS REPORT (Form + Files upload support)
 @app.post("/api/reports")
 async def create_report(
-    incidentType: str = Form(...),
-    description: str = Form(...),
+    request: Request,
+    incidentType: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
     date: Optional[str] = Form(None),
     location: Optional[str] = Form("Anonymous"),
     senderContact: Optional[str] = Form("Anonymous"),
@@ -150,33 +151,54 @@ async def create_report(
         if not mongo_connected or db is None:
             raise HTTPException(status_code=503, detail="Database connection unavailable. Please try again.")
         
+        # Check Content-Type to see if JSON is sent
+        content_type = request.headers.get("content-type", "")
+        
+        if "application/json" in content_type:
+            payload = await request.json()
+            incident_type = payload.get("incidentType")
+            desc = payload.get("description")
+            report_date = payload.get("date")
+            loc = payload.get("location", "Anonymous")
+            contact = payload.get("senderContact", "Anonymous")
+            saved_attachments = []
+        else:
+            incident_type = incidentType
+            desc = description
+            report_date = date
+            loc = location or "Anonymous"
+            contact = senderContact or "Anonymous"
+            
+            saved_attachments = []
+            if attachments:
+                for file in attachments:
+                    if file.filename:
+                        # Create clean secure filename
+                        file_ext = os.path.splitext(file.filename)[1]
+                        unique_name = f"attachment-{uuid.uuid4().hex}{file_ext}"
+                        filepath = os.path.join(UPLOADS_DIR, unique_name)
+                        
+                        # Read and save file content
+                        content = await file.read()
+                        with open(filepath, "wb") as buffer:
+                            buffer.write(content)
+                        
+                        saved_attachments.append(f"/uploads/{unique_name}")
+
+        if not incident_type or not desc:
+            raise HTTPException(status_code=400, detail="Incident type and description are required.")
+
         # Generate clean futuristic tracking code SAFE-XXXX-XXXX
         tracking_code = f"SAFE-{''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=4))}-{''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=4))}"
-        
-        saved_attachments = []
-        if attachments:
-            for file in attachments:
-                if file.filename:
-                    # Create clean secure filename
-                    file_ext = os.path.splitext(file.filename)[1]
-                    unique_name = f"attachment-{uuid.uuid4().hex}{file_ext}"
-                    filepath = os.path.join(UPLOADS_DIR, unique_name)
-                    
-                    # Read and save file content
-                    content = await file.read()
-                    with open(filepath, "wb") as buffer:
-                        buffer.write(content)
-                    
-                    saved_attachments.append(f"/uploads/{unique_name}")
 
         new_report = {
             "id": str(uuid.uuid4()),
             "trackingCode": tracking_code,
-            "incidentType": incidentType,
-            "description": description,
-            "date": date or datetime.now().strftime("%Y-%m-%d"),
-            "location": location or "Anonymous",
-            "senderContact": senderContact or "Anonymous",
+            "incidentType": incident_type,
+            "description": desc,
+            "date": report_date or datetime.now().strftime("%Y-%m-%d"),
+            "location": loc or "Anonymous",
+            "senderContact": contact or "Anonymous",
             "attachments": saved_attachments,
             "status": "Received",
             "createdAt": datetime.now().isoformat(),
@@ -191,7 +213,7 @@ async def create_report(
 
         # Insert into MongoDB
         db[REPORTS_COLLECTION].insert_one(new_report)
-        print(f"✓ Report saved to MongoDB: {tracking_code}")
+        print(f"[OK] Report saved to MongoDB: {tracking_code}")
 
         return {
             "success": True,
@@ -199,6 +221,8 @@ async def create_report(
             "trackingCode": tracking_code,
             "status": new_report["status"]
         }
+    except HTTPException as he:
+        raise he
     except Exception as e:
         print("Error submitting report:", e)
         raise HTTPException(status_code=500, detail="Failed to process anonymous report.")
@@ -278,7 +302,7 @@ def trigger_sos(payload: dict):
 
         # Insert into MongoDB
         db[SOS_LOGS_COLLECTION].insert_one(new_sos)
-        print(f"✓ SOS Alert logged to MongoDB: {new_sos['id']}")
+        print(f"[OK] SOS Alert logged to MongoDB: {new_sos['id']}")
 
         return {
             "success": True,

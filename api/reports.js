@@ -12,7 +12,7 @@ export default function handler(req, res) {
       // Parse the body - handle both FormData and JSON
       let incidentType, description, date, location, senderContact;
 
-      if (req.body && typeof req.body === 'object') {
+      if (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) {
         // Direct object from JSON parser
         incidentType = req.body.incidentType;
         description = req.body.description;
@@ -20,13 +20,16 @@ export default function handler(req, res) {
         location = req.body.location;
         senderContact = req.body.senderContact;
       } else if (typeof req.body === 'string') {
-        // Parse JSON string
-        const parsed = JSON.parse(req.body);
-        incidentType = parsed.incidentType;
-        description = parsed.description;
-        date = parsed.date;
-        location = parsed.location;
-        senderContact = parsed.senderContact;
+        try {
+          const parsed = JSON.parse(req.body);
+          incidentType = parsed.incidentType;
+          description = parsed.description;
+          date = parsed.date;
+          location = parsed.location;
+          senderContact = parsed.senderContact;
+        } catch (e) {
+          // Ignore invalid JSON format string
+        }
       }
 
       if (!description || !incidentType) {
