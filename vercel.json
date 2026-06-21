@@ -5,6 +5,10 @@
 
   "rewrites": [
     {
+      "source": "/api/reports/:code",
+      "destination": "/api/reports/[code].js"
+    },
+    {
       "source": "/api/:path*",
       "destination": "/api/:path*"
     },
