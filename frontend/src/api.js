@@ -1,4 +1,8 @@
-const API_BASE_URL = 'http://localhost:5000/api';
+// Use environment variable for API URL, fallback to current domain for deployed apps
+const API_BASE_URL = import.meta.env.VITE_API_URL || 
+  (typeof window !== 'undefined' && window.location.origin !== 'http://localhost:5173' 
+    ? `${window.location.origin}/api` 
+    : 'http://localhost:5000/api');
 
 /**
  * Fetches the list of active NGOs and helplines.
